@@ -72,7 +72,7 @@ class PersistentRSVPView(discord.ui.View):
         # Build Updated Embed
         new_embed = discord.Embed(
             title="🎮   Boys Night   🎮",
-            description="It's Wednesday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
+            description="It's Thursday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
             color=0x5865F2,
             timestamp=datetime.datetime.now(UTAH_TZ),
         )
@@ -129,7 +129,7 @@ def create_initial_embed():
     """Builds the starting card with your preferred wording"""
     embed = discord.Embed(
         title="🎮   Boys Night   🎮",
-        description="It's Wednesday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
+        description="It's Thursday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
         color=0x5865F2,
         timestamp=datetime.datetime.now(UTAH_TZ),
     )
@@ -174,8 +174,8 @@ async def globally_restrict_to_channel(ctx):
 
 @tasks.loop(time=POLL_TIME)
 async def weekly_poll_task():
-    if datetime.datetime.now(UTAH_TZ).weekday() == 2:  # Wednesday
-        print("Triggering scheduled Wednesday poll...")
+    if datetime.datetime.now(UTAH_TZ).weekday() == 3:  # Thursday
+        print("Triggering scheduled Thursday poll...")
         await send_poll()
 
 
