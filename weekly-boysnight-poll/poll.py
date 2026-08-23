@@ -34,7 +34,6 @@ POLL_MESSAGES = [
     "Time to chill and play some games tonight.",
     "Another Thursday, another gaming session with the boys.",
     "Rounds, laughs, and good times ahead. Who's in?",
-    "Thursday night lobby is open!",
     "Taking a break from the week to game tonight.",
     "Snacks ready, games loaded. Who's pulling up tonight?",
     "Who's ready for some Thursday night gaming?",
@@ -136,7 +135,6 @@ class PersistentRSVPView(discord.ui.View):
             title=embed.title or "🎮   Boys Night   🎮",
             description=embed.description,
             color=0x5865F2,
-            timestamp=embed.timestamp or datetime.datetime.now(UTAH_TZ),
         )
 
         # Only add groups that have active votes
@@ -196,7 +194,6 @@ def create_initial_embed(custom_message=None):
         title="🎮   Boys Night   🎮",
         description=f"{greeting}\n**Who's gaming tonight?**",
         color=0x5865F2,
-        timestamp=datetime.datetime.now(UTAH_TZ),
     )
     return embed
 
@@ -250,10 +247,10 @@ async def weekly_poll_task():
         await send_poll()
 
 
-@bot.command(name="testpoll")
-async def test_poll(ctx):
+@bot.command(name="sendpoll", aliases=["testpoll"])
+async def send_poll_command(ctx):
     channel_name = getattr(ctx.channel, "name", "unknown")
-    print(f"Manual trigger: !testpoll received from {ctx.author} in #{channel_name} ({ctx.channel.id})")
+    print(f"Manual trigger: !sendpoll received from {ctx.author} in #{channel_name} ({ctx.channel.id})")
     await send_poll(target_channel=ctx.channel)
 
 
