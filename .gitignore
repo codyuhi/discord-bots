@@ -1,2 +1,6 @@
 .env
 __pycache__/
+*.py[cod]
+discord-venv/
+venv/
+.venv/

@@ -9,6 +9,14 @@ from dotenv import load_dotenv
 
 # Ensure logs are flushed to Docker immediately
 os.environ["PYTHONUNBUFFERED"] = "1"
+
+# Configure SSL certificate path if certifi is available (helps local macOS/Docker environments)
+try:
+    import certifi
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+except ImportError:
+    pass
+
 load_dotenv()
 
 # 1. SETUP
@@ -22,14 +30,32 @@ try:
     POLL_TIME = datetime.time(hour=9, minute=0, tzinfo=UTAH_TZ)
 
     TOKEN = os.getenv("BOT_TOKEN")
-    raw_channel_id = os.getenv("CHANNEL_ID")
-
     if not TOKEN:
         raise ValueError("BOT_TOKEN is missing from environment.")
-    if not raw_channel_id:
-        raise ValueError("CHANNEL_ID is missing from environment.")
 
-    CHANNEL_ID = int(raw_channel_id)
+    # Parse channel IDs from various possible environment variables
+    raw_channel_inputs = [
+        os.getenv("CHANNEL_IDS", ""),
+        os.getenv("CHANNEL_ID", ""),
+        os.getenv("TEST_CHANNEL_ID", ""),
+        os.getenv("SNAKECODE_TEST_CHANNEL_ID", ""),
+        os.getenv("SHOOTY_BOIS_CHANNEL_ID", ""),
+    ]
+
+    channel_id_list = []
+    for raw in raw_channel_inputs:
+        if raw:
+            for item in raw.split(","):
+                item_str = item.strip()
+                if item_str.isdigit():
+                    val = int(item_str)
+                    if val not in channel_id_list:
+                        channel_id_list.append(val)
+
+    if not channel_id_list:
+        raise ValueError("No valid CHANNEL_ID, CHANNEL_IDS, or TEST_CHANNEL_ID found in environment.")
+
+    CHANNEL_IDS = channel_id_list
 except Exception as e:
     print(f"CRITICAL CONFIG ERROR: {e}")
     sys.exit(1)
@@ -144,23 +170,37 @@ def create_initial_embed():
     return embed
 
 
-async def send_poll():
-    # Cache lookup with API fallback
-    channel = bot.get_channel(CHANNEL_ID)
-    if not channel:
+async def send_poll(target_channel=None):
+    """Sends the poll embed with RSVP view. If target_channel is provided, sends to that channel; otherwise sends to all configured channels."""
+    if target_channel:
         try:
-            channel = await bot.fetch_channel(CHANNEL_ID)
+            await target_channel.send(embed=create_initial_embed(), view=PersistentRSVPView())
+            channel_name = getattr(target_channel, "name", "unknown")
+            print(f"SUCCESS: Poll sent to channel #{channel_name} ({target_channel.id})")
+            return True
         except Exception as e:
-            print(f"CRITICAL: Failed to fetch channel {CHANNEL_ID}: {e}")
+            print(f"ERROR: Failed to send poll to channel {target_channel.id}: {e}")
             return False
 
-    try:
-        await channel.send(embed=create_initial_embed(), view=PersistentRSVPView())
-        print(f"SUCCESS: Poll sent to {CHANNEL_ID}")
-        return True
-    except Exception as e:
-        print(f"ERROR: Failed to send poll: {e}")
-    return False
+    all_success = True
+    for ch_id in CHANNEL_IDS:
+        channel = bot.get_channel(ch_id)
+        if not channel:
+            try:
+                channel = await bot.fetch_channel(ch_id)
+            except Exception as e:
+                print(f"CRITICAL: Failed to fetch channel {ch_id}: {e}")
+                all_success = False
+                continue
+
+        try:
+            await channel.send(embed=create_initial_embed(), view=PersistentRSVPView())
+            channel_name = getattr(channel, "name", "unknown")
+            print(f"SUCCESS: Poll sent to #{channel_name} ({ch_id})")
+        except Exception as e:
+            print(f"ERROR: Failed to send poll to {ch_id}: {e}")
+            all_success = False
+    return all_success
 
 
 # 4. SCHEDULER & COMMANDS
@@ -168,8 +208,8 @@ async def send_poll():
 
 @bot.check
 async def globally_restrict_to_channel(ctx):
-    """Prevents the bot from processing commands outside its assigned channel env var."""
-    return ctx.channel.id == CHANNEL_ID
+    """Prevents the bot from processing commands outside its assigned channels."""
+    return ctx.channel.id in CHANNEL_IDS
 
 
 @tasks.loop(time=POLL_TIME)
@@ -181,16 +221,19 @@ async def weekly_poll_task():
 
 @bot.command(name="testpoll")
 async def test_poll(ctx):
-    print(f"Manual trigger: !testpoll received from {ctx.author}")
-    await send_poll()
+    channel_name = getattr(ctx.channel, "name", "unknown")
+    print(f"Manual trigger: !testpoll received from {ctx.author} in #{channel_name} ({ctx.channel.id})")
+    await send_poll(target_channel=ctx.channel)
 
 
 @bot.event
 async def on_ready():
     # Re-register view for old message persistence
     bot.add_view(PersistentRSVPView())
-    print(f"--- Bot Online ---")
-    print(f"Targeting Channel ID: {CHANNEL_ID}")
+    print("--- Bot Online ---")
+    print(f"Logged in as: {bot.user} (ID: {bot.user.id})")
+    print(f"Connected Guilds: {[guild.name for guild in bot.guilds]}")
+    print(f"Targeting Channel IDs: {CHANNEL_IDS}")
     if not weekly_poll_task.is_running():
         weekly_poll_task.start()
 
