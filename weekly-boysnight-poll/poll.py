@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import os
 import sys
 import re
+import random
 from dotenv import load_dotenv
 
 # Ensure logs are flushed to Docker immediately
@@ -18,6 +19,30 @@ except ImportError:
     pass
 
 load_dotenv()
+
+# Pool of rotating greetings for the weekly poll
+POLL_MESSAGES = [
+    "It's Thursday, my dudes.",
+    "Another Thursday, another dub waiting to be claimed.",
+    "The beacons are lit—boys night calls for aid!",
+    "Lock and load, it's Thursday night.",
+    "Clear your schedules and charge your controllers.",
+    "Thursday night briefing: gaming operations commence soon.",
+    "Spawn point is active. Who's dropping in tonight?",
+    "May your frames be high and your ping be low.",
+    "Time to clutch up or choke. Happy Thursday.",
+    "Rally the squad, Thursday has arrived.",
+    "Press Start to continue: Thursday Night Edition.",
+    "Respawn timer has expired. It's game time.",
+    "Weekend's almost here, but the grind starts tonight.",
+    "Gather the party, adventure (and chaos) awaits.",
+    "Battle stations ready. Who's clocking in tonight?",
+    "Thursday protocol initiated: boot up the rigs.",
+    "The lobby is waiting. Don't leave the squad hanging.",
+    "Victory royale or pure tilt? Let's find out tonight.",
+    "Energy drinks cracked, headsets on. It's Thursday.",
+    "No sleep till Friday—time to run the games.",
+]
 
 # 1. SETUP
 intents = discord.Intents.default()
@@ -67,19 +92,30 @@ class PersistentRSVPView(discord.ui.View):
         super().__init__(timeout=None)  # Required for persistence
 
     def parse_names(self, field_value):
-        """Extracts names from the bulleted list; ignores placeholder text"""
-        if any(x in field_value for x in ["I plan to join", "Unsure", "Unable"]):
+        """Extracts names from field value"""
+        if not field_value:
             return []
-        return re.findall(r"•\s+(.+)", field_value)
+        names = re.findall(r"•\s+(.+)", field_value)
+        if not names:
+            names = [line.strip() for line in field_value.split("\n") if line.strip()]
+        return names
 
     async def update_card(self, interaction: discord.Interaction, target_label):
-        """Scrapes existing state from the Discord message and updates it"""
+        """Scrapes existing state from the Discord message and dynamically updates responder groups"""
         embed = interaction.message.embeds[0]
 
-        # Parse current names from fields
-        yes_list = self.parse_names(embed.fields[0].value)
-        maybe_list = self.parse_names(embed.fields[1].value)
-        no_list = self.parse_names(embed.fields[2].value)
+        yes_list = []
+        maybe_list = []
+        no_list = []
+
+        # Scrape dynamically from existing fields
+        for field in embed.fields:
+            if "✅" in field.name or "Yes" in field.name:
+                yes_list = self.parse_names(field.value)
+            elif "⏰" in field.name or "Maybe" in field.name:
+                maybe_list = self.parse_names(field.value)
+            elif "❌" in field.name or "No" in field.name:
+                no_list = self.parse_names(field.value)
 
         mapping = {"Yes": yes_list, "Maybe": maybe_list, "No": no_list}
         user_name = interaction.user.display_name
@@ -87,39 +123,41 @@ class PersistentRSVPView(discord.ui.View):
         # SRE Debug Logging
         print(f"DEBUG: Click by {user_name} for {target_label}.")
 
-        # Remove user from all lists to allow 'switching' votes
+        # Remove user from all lists to allow switching votes
         for lst in mapping.values():
-            if user_name in lst:
+            while user_name in lst:
                 lst.remove(user_name)
 
         # Add to the new list
         mapping[target_label].append(user_name)
 
-        # Build Updated Embed
+        # Build Updated Embed preserving original header message
         new_embed = discord.Embed(
-            title="🎮   Boys Night   🎮",
-            description="It's Thursday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
+            title=embed.title or "🎮   Boys Night   🎮",
+            description=embed.description,
             color=0x5865F2,
-            timestamp=datetime.datetime.now(UTAH_TZ),
+            timestamp=embed.timestamp or datetime.datetime.now(UTAH_TZ),
         )
 
-        new_embed.add_field(
-            name="✅  Yes",
-            value="\n".join([f"• {n}" for n in yes_list]) or "I plan to join",
-            inline=False,
-        )
-        new_embed.add_field(
-            name="⏰  Maybe/late",
-            value="\n".join([f"• {n}" for n in maybe_list])
-            or "Unsure if I can join, or may be late",
-            inline=False,
-        )
-        new_embed.add_field(
-            name="❌  No",
-            value="\n".join([f"• {n}" for n in no_list]) or "Unable to join",
-            inline=False,
-        )
-        new_embed.set_footer(text="Select your status by clicking a button below")
+        # Only add groups that have active votes
+        if yes_list:
+            new_embed.add_field(
+                name="✅  Yes",
+                value="\n".join([f"• {n}" for n in yes_list]),
+                inline=False,
+            )
+        if maybe_list:
+            new_embed.add_field(
+                name="⏰  Maybe/late",
+                value="\n".join([f"• {n}" for n in maybe_list]),
+                inline=False,
+            )
+        if no_list:
+            new_embed.add_field(
+                name="❌  No",
+                value="\n".join([f"• {n}" for n in no_list]),
+                inline=False,
+            )
 
         await interaction.response.edit_message(embed=new_embed, view=self)
 
@@ -151,22 +189,15 @@ class PersistentRSVPView(discord.ui.View):
         await self.update_card(interaction, "No")
 
 
-def create_initial_embed():
-    """Builds the starting card with your preferred wording"""
+def create_initial_embed(custom_message=None):
+    """Builds the starting card with a randomized intro greeting and no empty responder groups"""
+    greeting = custom_message or random.choice(POLL_MESSAGES)
     embed = discord.Embed(
         title="🎮   Boys Night   🎮",
-        description="It's Thursday, my dudes.\n**Who's gaming tonight?**\n\n──────────────────────────",
+        description=f"{greeting}\n**Who's gaming tonight?**",
         color=0x5865F2,
         timestamp=datetime.datetime.now(UTAH_TZ),
     )
-    embed.add_field(name="✅  Yes", value="I plan to join", inline=False)
-    embed.add_field(
-        name="⏰  Maybe/late",
-        value="Unsure if I can join, or may be late",
-        inline=False,
-    )
-    embed.add_field(name="❌  No", value="Unable to join", inline=False)
-    embed.set_footer(text="Select your status by clicking a button below")
     return embed
 
 
