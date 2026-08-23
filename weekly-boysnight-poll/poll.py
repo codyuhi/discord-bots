@@ -20,28 +20,28 @@ except ImportError:
 
 load_dotenv()
 
-# Pool of rotating greetings for the weekly poll
+# Pool of rotating lighthearted greetings for the weekly poll
 POLL_MESSAGES = [
     "It's Thursday, my dudes.",
-    "Another Thursday, another dub waiting to be claimed.",
-    "The beacons are lit—boys night calls for aid!",
-    "Lock and load, it's Thursday night.",
-    "Clear your schedules and charge your controllers.",
-    "Thursday night briefing: gaming operations commence soon.",
-    "Spawn point is active. Who's dropping in tonight?",
-    "May your frames be high and your ping be low.",
-    "Time to clutch up or choke. Happy Thursday.",
-    "Rally the squad, Thursday has arrived.",
-    "Press Start to continue: Thursday Night Edition.",
-    "Respawn timer has expired. It's game time.",
-    "Weekend's almost here, but the grind starts tonight.",
-    "Gather the party, adventure (and chaos) awaits.",
-    "Battle stations ready. Who's clocking in tonight?",
-    "Thursday protocol initiated: boot up the rigs.",
-    "The lobby is waiting. Don't leave the squad hanging.",
-    "Victory royale or pure tilt? Let's find out tonight.",
-    "Energy drinks cracked, headsets on. It's Thursday.",
-    "No sleep till Friday—time to run the games.",
+    "Thursday night gaming vibes. Who's in?",
+    "Grab a drink, hop on Discord, let's play some games.",
+    "The weekend is close, but gaming starts tonight.",
+    "Time for some casual games and good times.",
+    "Headsets on, ready to unwind tonight?",
+    "Thursday check-in: who's hanging out and gaming?",
+    "Good vibes and gaming tonight. Who's around?",
+    "Booting up for Thursday night. Who's joining the squad?",
+    "Time to chill and play some games tonight.",
+    "Another Thursday, another gaming session with the boys.",
+    "Rounds, laughs, and good times ahead. Who's in?",
+    "Thursday night lobby is open!",
+    "Taking a break from the week to game tonight.",
+    "Snacks ready, games loaded. Who's pulling up tonight?",
+    "Who's ready for some Thursday night gaming?",
+    "Dropping into the server tonight for some fun.",
+    "Casual gaming session tonight—who's available?",
+    "Unwinding with some games tonight. Who's in?",
+    "Thursday game night is here! Who's hopping on?",
 ]
 
 # 1. SETUP
