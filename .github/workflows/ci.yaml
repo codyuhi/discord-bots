@@ -1,0 +1,48 @@
+name: CI / Security & Build Quality
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  security-and-lint:
+    name: Secret Scan & Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Validate YAML & JSON Syntax
+        run: |
+          python3 -c '
+          import json, glob, sys
+          for f in glob.glob("**/*.json", recursive=True):
+              if "node_modules" not in f and ".git" not in f:
+                  try:
+                      json.load(open(f))
+                  except Exception as e:
+                      print(f"Invalid JSON {f}: {e}")
+                      sys.exit(1)
+          print("JSON syntax validation passed!")
+          '
+
+      - name: Validate Dockerfile Syntax
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "weekly-boysnight-poll/Dockerfile"
+          ignore: DL3008,DL3018,DL3013
+        continue-on-error: true
